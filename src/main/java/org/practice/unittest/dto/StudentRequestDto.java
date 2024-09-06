@@ -1,14 +1,14 @@
 package org.practice.unittest.dto;
 
 
-import lombok.Builder;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.util.Date;
 
 @Getter
 @Setter
+@AllArgsConstructor
+@RequiredArgsConstructor
 @Builder
 public class StudentRequestDto {
     private String name;
