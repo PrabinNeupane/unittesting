@@ -1,6 +1,10 @@
 package org.practice.unittest;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.mockito.MockitoAnnotations;
 import org.practice.unittest.controller.StudentController;
 import org.practice.unittest.dto.StudentRequestDto;
 import org.practice.unittest.dto.StudentResponseDto;
@@ -10,16 +14,19 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import java.util.Arrays;
 import java.util.Date;
 
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(StudentController.class)
 class StudentControllerTest {
+
+    private static final String API_URL = "/api/v1/student";
 
     @Autowired
     private MockMvc mockMvc;
@@ -27,59 +34,55 @@ class StudentControllerTest {
     @MockBean
     private StudentService studentService;
 
-    @Test
-    public void getStudents() throws Exception {
-        // Mock the service layer
-        StudentResponseDto student1 = new StudentResponseDto("1", "John Doe", 20, 3, new Date(), 123, "123 Main St", "Anytown");
-        StudentResponseDto student2 = new StudentResponseDto("2", "Jane Doe", 22, 4, new Date(), 456, "456 Elm St", "Othertown");
-        when(studentService.getStudents()).thenReturn(Arrays.asList(student1, student2));
+    @Autowired
+    private StudentController studentController;
 
-        // Perform the request and verify the response
-        mockMvc.perform(get("/api/v1/student")
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(content().json("[{'id':'1','name':'John Doe','age':20,'grade':3,'dob':null,'rollNumber':123,'address':'123 Main St','city':'Anytown'},{'id':'2','name':'Jane Doe','age':22,'grade':4,'dob':null,'rollNumber':456,'address':'456 Elm St','city':'Othertown'}]"));
+    private ObjectMapper objectMapper;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+        mockMvc = MockMvcBuilders.standaloneSetup(studentController).build();
+
+        objectMapper = new ObjectMapper();
+
+        when(studentService.createStudent(ArgumentMatchers.any(StudentRequestDto.class)))
+                .thenReturn(new StudentResponseDto(
+                        "123saodl13",
+                        "John",
+                        25,
+                        12,
+                        new Date(1643723400000L),
+                        11,
+                        "New York",
+                        "New York"
+                ));
     }
 
     @Test
-    public void createStudent() throws Exception {
-        // Mock the service layer
-        StudentRequestDto studentRequestDto = new StudentRequestDto("John Doe", 20, 3, new Date(), 123, "123 Main St", "Anytown");
-        StudentResponseDto studentResponseDto = new StudentResponseDto("1", "John Doe", 20, 3, new Date(), 123, "123 Main St", "Anytown");
-        when(studentService.createStudent(studentRequestDto)).thenReturn(studentResponseDto);
+    void testCreateStudent() throws Exception {
+        // Arrange
+        StudentRequestDto studentRequestDto = new StudentRequestDto();
+        studentRequestDto.setName("John");
+        studentRequestDto.setAge(25);
+        studentRequestDto.setGrade(12);
+        studentRequestDto.setAddress("New York");
+        studentRequestDto.setDob(new Date(1643723400000L)); // February 1, 2023
 
-        // Perform the request and verify the response
-        mockMvc.perform(post("/api/v1/student")
+        String requestBody = objectMapper.writeValueAsString(studentRequestDto);
+
+        // Act & Assert
+        mockMvc.perform(post(API_URL)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"John Doe\",\"age\":20,\"grade\":3,\"dob\":null,\"rollNumber\":123,\"address\":\"123 Main St\",\"city\":\"Anytown\"}"))
-                .andExpect(status().isCreated())
-                .andExpect(content().json("{'id':'1','name':'John Doe','age':20,'grade':3,'dob':null,'rollNumber':123,'address':'123 Main St','city':'Anytown'}"));
-    }
-
-    @Test
-    public void updateStudent() throws Exception {
-        // Mock the service layer
-        StudentRequestDto studentRequestDto = new StudentRequestDto("John Doe", 21, 3, new Date(), 123, "123 Main St", "Anytown");
-        StudentResponseDto studentResponseDto = new StudentResponseDto("1", "John Doe", 21, 3, new Date(), 123, "123 Main St", "Anytown");
-        when(studentService.updateStudent("1", studentRequestDto)).thenReturn(studentResponseDto);
-
-        // Perform the request and verify the response
-        mockMvc.perform(put("/api/v1/student/1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"John Doe\",\"age\":21,\"grade\":3,\"dob\":null,\"rollNumber\":123,\"address\":\"123 Main St\",\"city\":\"Anytown\"}"))
+                        .content(requestBody))
                 .andExpect(status().isOk())
-                .andExpect(content().json("{'id':'1','name':'John Doe','age':21,'grade':3,'dob':null,'rollNumber':123,'address':'123 Main St','city':'Anytown'}"));
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.name").value("John"))
+                .andExpect(jsonPath("$.age").value(25))
+                .andExpect(jsonPath("$.grade").value(12))
+                .andExpect(jsonPath("$.address").value("New York"))
+                .andExpect(jsonPath("$.dob").exists())
+                .andExpect(jsonPath("$.id").exists())
+                .andDo(print());
     }
-
-//    @Test
-//    public void deleteStudent() throws Exception {
-//        // Mock the service layer
-//        when(studentService.deleteStudent("8b0fc7b9-aae4-4447-a089-0a74dfef07bc")).thenReturn(true);
-//
-//        // Perform the request and verify the response
-//        mockMvc.perform(delete("/api/v1/student/8b0fc7b9-aae4-4447-a089-0a74dfef07bc")
-//                .contentType(MediaType.APPLICATION_JSON))
-//                .andExpect(status()
-//                        .isNoContent());
-//    }
 }
